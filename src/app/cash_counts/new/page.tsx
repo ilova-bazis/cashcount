@@ -1,5 +1,7 @@
 'use client';
 
+import { useAuth } from '@/app/authcontext';
+import { useApi } from '@/app/hooks/useApi';
 import { useEffect, useState } from 'react';
 
 // Denominations you want to support
@@ -40,13 +42,17 @@ type CashCountInput = {
 
 export default function NewCashCountPage() {
   const [registries, setRegistries] = useState<Registry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { auth, isLoading: authLoading } = useAuth();
+  const { fetchWithAuth } = useApi();
 
-  // The main form state
-  const [form, setForm] = useState<CashCountInput>({
+  const initialFormState: CashCountInput = {
     registry_id: 0,
     date_counted: new Date().toISOString(),
     reported_amount: 0,
-    actual_breakdown: {},      // Will fill with denominations
+    actual_breakdown: {},
     actual_total: 0,
     leftover_breakdown: {},
     leftover_total: 0,
@@ -56,17 +62,43 @@ export default function NewCashCountPage() {
     billsTotal: 0,
     leftoverCoinsTotal: 0,
     leftoverBillsTotal: 0
-  });
+  };
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+  // The main form state
+  const [form, setForm] = useState<CashCountInput>(initialFormState);
 
-  // Fetch registries for the dropdown
   useEffect(() => {
-    fetch(`${API_BASE}/api/registries`)
-      .then(res => res.json())
-      .then(data => setRegistries(data))
-      .catch(console.error);
-  }, [API_BASE]);
+    if (authLoading) return;
+    if (!auth) {
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchRegistries = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await fetchWithAuth('/api/registries');
+        setRegistries(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch registries');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRegistries();
+  }, [auth, authLoading]);
+  // Fetch registries for the dropdown
+  // useEffect(() => {
+  //   fetch(`${API_BASE}/api/registries`, { headers: { Authorization: 'Basic ' + btoa(`${auth?.username}:${auth?.password}`) } })
+  //     .then(res => res.json())
+  //     .then(data => setRegistries(data))
+  //     .catch(console.error);
+  // }, [API_BASE]);
+
+
+
 
   // Helper to compute the total from a breakdown object
   function calculateTotal(breakdown: Record<string, number>): number {
@@ -109,6 +141,60 @@ function countBillsAndCoins(
     return { billsTotal, coinsTotal };
   }
 
+  //   // Form update functions
+  // const updateField = <T extends keyof CashCountInput>(
+  //     field: T,
+  //     value: CashCountInput[T]
+  // ) => {
+  //   setForm(prev => ({ ...prev, [field]: value }));
+  // };
+
+  // const updateActualDenom = (denomValue: number, quantity: number) => {
+  //   setForm(prev => ({
+  //     ...prev,
+  //     actual_breakdown: {
+  //       ...prev.actual_breakdown,
+  //       [denomValue.toFixed(2)]: quantity,
+  //     },
+  //   }));
+  // };
+
+  // const updateLeftoverDenom = (denomValue: number, quantity: number) => {
+  //   setForm(prev => ({
+  //     ...prev,
+  //     leftover_breakdown: {
+  //       ...prev.leftover_breakdown,
+  //       [denomValue.toFixed(2)]: quantity,
+  //     },
+  //   }));
+  // };
+
+    // Submit handler
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!auth) return;
+  
+      try {
+        setIsSubmitting(true);
+        setError(null);
+  
+        const response = await fetchWithAuth<{ id: number }>('/api/cash_counts', {
+          method: 'POST',
+          body: form,
+        });
+  
+        // Reset form on success
+        setForm(initialFormState);
+        alert(`Created cash count with ID: ${response.id}`);
+        // Optionally redirect:
+        // window.location.href = '/cash_counts';
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create cash count');
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
   // Whenever actual_breakdown, leftover_breakdown, or reported_amount changes,
   // recalc actual_total, leftover_total, and over_short.
   useEffect(() => {
@@ -129,6 +215,22 @@ function countBillsAndCoins(
 
     }));
   }, [form.actual_breakdown, form.leftover_breakdown, form.reported_amount]);
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (!auth) {
+    return (
+      <div className="text-center p-4">
+        <p className="text-red-600">Please log in to view cash counts</p>
+      </div>
+    )
+  }
 
   // Convert local "YYYY-MM-DDTHH:mm" to UTC ISO
   function toUtcISOString(localValue: string): string {
@@ -171,25 +273,25 @@ function countBillsAndCoins(
     }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      const res = await fetch(`${API_BASE}/api/cash_counts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) {
-        console.error('Error creating cash count');
-        return;
-      }
-      const data = await res.json();
-      alert(`Created cash count with ID: ${data.id}`);
-      // Reset or navigate as desired
-    } catch (err) {
-      console.error(err);
-    }
-  }
+  // async function handleSubmit(e: React.FormEvent) {
+  //   e.preventDefault();
+  //   try {
+  //     const res = await fetch(`${API_BASE}/api/cash_counts`, {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify(form),
+  //     });
+  //     if (!res.ok) {
+  //       console.error('Error creating cash count');
+  //       return;
+  //     }
+  //     const data = await res.json();
+  //     alert(`Created cash count with ID: ${data.id}`);
+  //     // Reset or navigate as desired
+  //   } catch (err) {
+  //     console.error(err);
+  //   }
+  // }
 
   return (
     <div className="space-y-4">
@@ -311,6 +413,7 @@ function countBillsAndCoins(
                     className="border p-1 ml-2 w-full"
                     min={0}
                     value={qty}
+                    onFocus={(e) => e.target.select()}
                     onChange={e => updateLeftoverDenom(den.value, parseInt(e.target.value || '0'))}
                   />
                 </div>
