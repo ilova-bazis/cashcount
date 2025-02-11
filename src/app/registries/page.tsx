@@ -16,19 +16,7 @@ export default function RegistriesPage() {
   const {auth, isLoading: authLoading}  = useAuth();
   const { fetchWithAuth } = useApi()
 
-  const fetchRegistries = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const data = await fetchWithAuth('/api/registries')
-      setRegistries(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setIsLoading(false)
-    }
-
-  }
+  
 
   useEffect(() => {
     if(authLoading) return
@@ -36,6 +24,20 @@ export default function RegistriesPage() {
       setIsLoading(false)
       return
     }
+    const fetchRegistries = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const data = await fetchWithAuth('/api/registries')
+        setRegistries(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+      } finally {
+        setIsLoading(false)
+      }
+  
+    }
+
     fetchRegistries()
 
   }, [auth, authLoading])

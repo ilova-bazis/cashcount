@@ -178,7 +178,7 @@ function countBillsAndCoins(
         setIsSubmitting(true);
         setError(null);
   
-        const response = await fetchWithAuth<{ id: number }>('/api/cash_counts', {
+        const response = await fetchWithAuth('/api/cash_counts', {
           method: 'POST',
           body: form,
         });

@@ -1,8 +1,12 @@
 'use client'
 import { useAuth } from "../authcontext"
 
-interface FetchOptions extends RequestInit {
-    body?: BodyInit | FormData | undefined
+// type CustomBody = { [key: string]: any };
+
+interface FetchOptions {
+    body?: BodyInit | object | null | undefined,
+    headers?: HeadersInit | Record<string, string> | undefined,
+    method?: string | undefined
 }
 
 export function useApi() {
