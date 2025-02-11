@@ -295,6 +295,7 @@ function countBillsAndCoins(
 
   return (
     <div className="space-y-4">
+      <p className="text-red-600">{error}</p>
       <h1 className="text-2xl font-semibold">Create New Cash Count</h1>
       <form onSubmit={handleSubmit} className="space-y-4 max-w-3xl">
 
@@ -488,6 +489,7 @@ function countBillsAndCoins(
         <button
           type="submit"
           className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          disabled={isSubmitting}
         >
           Save Cash Count
         </button>
